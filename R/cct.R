@@ -1,4 +1,7 @@
 setupLeaf = function(y) {
+
+  # browser()
+
   if (is.matrix(y)) {
     countsNode <- colSums(y)
     maxCounts <- max(countsNode)
@@ -7,7 +10,8 @@ setupLeaf = function(y) {
     if (sum(equalMaxCounts) == 1) {
       classIndex <- which(equalMaxCounts) #TODO check this
     } else {
-      TODO("TODO multiple max tie breaking")
+      classIndex <- sample(which(equalMaxCounts), 1L)
+      # TODO("TODO multiple max tie breaking")
     }
   } else {
     countsNode <- sum(y)
@@ -16,6 +20,7 @@ setupLeaf = function(y) {
 
   return(list(isLeaf = TRUE,
               classIndex = classIndex,
+              classProbs = countsNode/sum(countsNode),
               trainingCounts = countsNode))
 }
 
@@ -140,6 +145,9 @@ canonical_correlation_tree = function(
     xVariationTolerance = 1e-10,
     projectionBootstrap = FALSE,
     ancestralProbs = NULL) {
+
+  # browser()
+
   if (is.data.frame(X)) {
     X <- as.matrix(X)
   }
@@ -214,6 +222,7 @@ canonical_correlation_tree = function(
     }
   }
 
+
   # each partition can have multiple classes
   countsNode = colSums(Y)
   nonZeroCounts = sum(countsNode > 0)
@@ -257,10 +266,21 @@ canonical_correlation_tree = function(
 }
 
 #' @export
-predict.canonical_correlation_tree = function(object, newData, ...){
+predict.canonical_correlation_tree = function(object, newData, type=c("class", "prob"), ...){
+
+  # browser()
+
+  type <- match.arg(type)
+
   tree = object
   if (tree$isLeaf) {
-    return(tree$classIndex)
+
+    if (identical(type, "class")) {
+      return(tree$classIndex)
+    } else {
+      return(tree$classProbs)
+    }
+
   }
   nr_of_features = length(tree$decisionProjection)
   # TODO use formula instead of all but last column
@@ -273,17 +293,20 @@ predict.canonical_correlation_tree = function(object, newData, ...){
   U = X %*% tree$decisionProjection
   lessThanPartPoint = U <= tree$partitionPoint
 
-  currentNodeClasses = matrix(nrow = max(nrow(X), 1))
+  # currentNodeClasses = matrix(nrow = max(nrow(X), 1))
+  currentNodeClasses <- vector("list", max(nrow(X), 1))
   if (any(lessThanPartPoint)) {
-    currentNodeClasses[lessThanPartPoint, ] =
+    currentNodeClasses[lessThanPartPoint] =
       predict.canonical_correlation_tree(tree$refLeftChild,
                                        X[lessThanPartPoint, ,drop = FALSE]) #nolint
   }
   if (any(!lessThanPartPoint)) {
-    currentNodeClasses[!lessThanPartPoint, ] =
+    currentNodeClasses[lessThanPartPoint] =
       predict.canonical_correlation_tree(tree$refRightChild,
                                        X[!lessThanPartPoint, ,drop = FALSE]) #nolint
   }
+
+  # browser()
   return(currentNodeClasses)
 }
 

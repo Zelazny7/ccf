@@ -133,15 +133,17 @@ predict.canonical_correlation_forest = function(
     stop("Argument 'newdata' is missing.")
   }
 
+  browser()
+
   ntree <- length(object$forest)
-  treePredictions <- matrix(NA, nrow = nrow(newdata), ncol = ntree)
+  # treePredictions <- matrix(NA, nrow = nrow(newdata), ncol = ntree)
 
 
   if (verbose) {
       cat("calculating predictions\n")
   }
   # returns list of list
-  treePredictions = lapply(object$forest, predict, newdata)
+  treePredictions = lapply(object$forest, predict, newdata, ...)
   # convert to matrix
   treePredictions = do.call(cbind, treePredictions)
   if (verbose) {

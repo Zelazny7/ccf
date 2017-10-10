@@ -4,7 +4,7 @@
 \alias{canonical_correlation_analysis}
 \title{Canonical correlation analysis}
 \usage{
-canonical_correlation_analysis(x, y, epsilon = 1e-04)
+canonical_correlation_analysis(x, y, epsilon = 1e-04, inplace = FALSE)
 }
 \arguments{
 \item{x}{Matrix of size n-by-p with n observations from p variables. Alternatively, data

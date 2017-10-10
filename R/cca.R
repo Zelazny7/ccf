@@ -36,7 +36,7 @@ center_colmeans <- function(x) {
 #' cca <- canonical_correlation_analysis(X, X)
 #' cca
 #' @export
-canonical_correlation_analysis <- function(x, y, epsilon = 1e-4) {
+canonical_correlation_analysis <- function(x, y, epsilon = 1e-4, inplace=FALSE) {
   if (is.data.frame(x) || is.vector(x)) {
     x <- as.matrix(x)
   }
@@ -49,8 +49,8 @@ canonical_correlation_analysis <- function(x, y, epsilon = 1e-4) {
   }
 
   # mean centering
-  x <- center_colmeans(x)
-  y <- center_colmeans(y)
+  x <- center_cpp(x, inplace=inplace)
+  y <- center_cpp(y, inplace=inplace)
 
   # QR decomposition
   # (https://cran.r-project.org/doc/contrib/Hiebeler-matlabR.pdf)
@@ -102,8 +102,12 @@ canonical_correlation_analysis <- function(x, y, epsilon = 1e-4) {
 
   # Remove meaningless components in L and M
   # Note solve(x) == x^-1
-  A <- solve(rX) %*% L[, 1:numberOfCoefficientPairs] * sqrt(nrow(x) - 1)
-  B <- solve(rY) %*% M[, 1:numberOfCoefficientPairs] * sqrt(nrow(x) - 1)
+  A <- MASS::ginv(rX) %*% L[, 1:numberOfCoefficientPairs] * sqrt(nrow(x) - 1)
+  B <- MASS::ginv(rY) %*% M[, 1:numberOfCoefficientPairs] * sqrt(nrow(x) - 1)
+
+   #A <- L[, 1:numberOfCoefficientPairs]
+   #B <- M[, 1:numberOfCoefficientPairs]
+
 
   # restore full size
   A <- rbind(A, matrix(0, ncol(x) - rankX, numberOfCoefficientPairs))

@@ -28,5 +28,5 @@ Suggests:
 LazyData: TRUE
 RoxygenNote: 6.0.1
 VignetteBuilder: knitr
-LinkingTo: Rcpp
-Imports: Rcpp
+LinkingTo: Rcpp, RcppEigen
+Imports: Rcpp, RcppEigen
