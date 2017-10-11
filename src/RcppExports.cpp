@@ -7,14 +7,14 @@
 using namespace Rcpp;
 
 // test_eigen
-Rcpp::List test_eigen(Rcpp::NumericMatrix Xin, Rcpp::NumericMatrix Yin);
-RcppExport SEXP _ccf_test_eigen(SEXP XinSEXP, SEXP YinSEXP) {
+Rcpp::List test_eigen(Eigen::Map<Eigen::MatrixXd> X, Eigen::Map<Eigen::MatrixXd> Y);
+RcppExport SEXP _ccf_test_eigen(SEXP XSEXP, SEXP YSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Xin(XinSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Yin(YinSEXP);
-    rcpp_result_gen = Rcpp::wrap(test_eigen(Xin, Yin));
+    Rcpp::traits::input_parameter< Eigen::Map<Eigen::MatrixXd> >::type X(XSEXP);
+    Rcpp::traits::input_parameter< Eigen::Map<Eigen::MatrixXd> >::type Y(YSEXP);
+    rcpp_result_gen = Rcpp::wrap(test_eigen(X, Y));
     return rcpp_result_gen;
 END_RCPP
 }

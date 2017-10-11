@@ -1,81 +1,112 @@
 #include <RcppEigen.h>
 #include "util.h"
 #include <stdlib.h>
+//#include <vector.h>
 
 // [[Rcpp::depends(RcppEigen)]]
 
-// [[Rcpp::export]]
-Rcpp::List test_eigen(Rcpp::NumericMatrix Xin, Rcpp::NumericMatrix Yin) {
+// let Eigen center the matrices
+#define center(mat) mat.rowwise() - mat.colwise().mean()
 
-  //Rcpp::NumericMatrix X_cen = center_cpp(Xin, Rcpp::LogicalVector(1));
-  //Rcpp::NumericMatrix Y_cen = center_cpp(Yin, Rcpp::LogicalVector(1));
+// return the decom information in this struct
+typedef struct  {
+  //Eigen::MatrixXd Q;
+  Eigen::MatrixXd R;
+  Eigen::MatrixXf::Index* perm;
+  int rk;
+} qr_result;
 
-  // convert centered matrices to Eigen types
-  Eigen::Map<Eigen::MatrixXd> X = Rcpp::as<Eigen::Map<Eigen::MatrixXd> >(Xin);
-  Eigen::Map<Eigen::MatrixXd> Y = Rcpp::as<Eigen::Map<Eigen::MatrixXd> >(Yin);
+// mostly used for debugging and verifying results in R
+Rcpp::List qr_result_to_list(qr_result result) {
 
-  // QR Decomposition with column pivot for both centered matrices
-  const double threshold = 0.0001;
+  // copy perm to numeric vector
+  Rcpp::NumericVector perm(result.rk);
+  for (int i = 0; i < perm.size(); i++) {
+    perm[i] = result.perm[i] + 1;
+  }
 
-  Eigen::ColPivHouseholderQR< Eigen::MatrixXd > qrX;
-  //qrX.setThreshold(threshold);
-  qrX.compute(X);
-
-  // extract parts we need
-
-  Eigen::ColPivHouseholderQR< Eigen::MatrixXd > qrY;
-  qrY.setThreshold(threshold);
-  qrY.compute(X);
-
-  // extract and return parts and compare to R
-  Eigen::Index rk = qrX.rank();
-
-
-  Eigen::MatrixXd QR = qrX.matrixQR();
-  Eigen::MatrixXd Q = ((Eigen::MatrixXd) qrX.householderQ()).block(0, 0, Xin.nrow(), rk);
-  Eigen::MatrixXd R = qrX.matrixQR().topLeftCorner(rk, rk).triangularView<Eigen::Upper>();
-
-
-
-  //qr.matrixQR().triangularView<Upper>()
-
-  Eigen::MatrixXd perm = qrX.colsPermutation();
-
-  // find the rank
-
-  Rcpp::Rcout << "Rank of matrix" << rk << std::endl;
-
-  //x = X.colPivHouseholderQr();
-
-
-  // center the matrix
-  //
-  // Rcpp::NumericMatrix Y_cen = center_cpp(Yin, Rcpp::LogicalVector(1));
-
-
-  //  QR decomposition
-  // (https://cran.r-project.org/doc/contrib/Hiebeler-matlabR.pdf)
-  //  qrDecompX <- qr(x, tol = epsilon)
-  //  qX <- qr.Q(qrDecompX)
-  //  rX <- qr.R(qrDecompX)
-  //  pX <- qrDecompX$pivot
-  //  rankX <- qrDecompX$rank
-  //
-  //  qrDecomp <- qr(y, tol = epsilon)
-  //  qY <- qr.Q(qrDecomp)
-  //  rY <- qr.R(qrDecomp)
-  //  pY <- qrDecomp$pivot
-  //  rankY <- qrDecomp$rank
-  //
-
+  // free the allocated mem for perm
+  std::free(result.perm);
 
   return Rcpp::List::create(
-    Rcpp::Named("QR") = Rcpp::wrap(QR),
-    Rcpp::Named("Q") = Rcpp::wrap(Q),
-    Rcpp::Named("R") = Rcpp::wrap(R),
-    Rcpp::Named("perm") = Rcpp::wrap(perm));
-    //Rcpp::Named("rk") = Rcpp::as<NumericVector>(rk));
+    //Rcpp::Named("Q") = Rcpp::wrap(result.Q),
+    Rcpp::Named("R") = Rcpp::wrap(result.R),
+    Rcpp::Named("perm") = perm,
+    Rcpp::Named("rank") = Rcpp::wrap(result.rk));
 
+}
+
+qr_result qr_decomp_cpp(Eigen::MatrixXd mat) {
+
+  const double threshold = 0.0001;
+
+  Eigen::ColPivHouseholderQR< Eigen::MatrixXd > qr;
+  qr.setThreshold(threshold);
+  qr.compute(mat);
+
+  int rk = qr.rank();
+
+  Eigen::MatrixXd perm = qr.colsPermutation();
+
+  // find col-index positions of permutation matrix
+  Eigen::MatrixXf::Index* indices = (Eigen::MatrixXf::Index*) std::calloc(perm.cols(), sizeof(indices));
+
+  for(int i=0; i < perm.cols(); ++i) {
+    perm.col(i).maxCoeff( &indices[i] );
+  }
+
+  //Eigen::ColPivHouseholderQR< Eigen::MatrixXd >::HouseholderSequenceType  seq = qr.householderQ();
+
+
+  qr_result result = {
+    //((Eigen::MatrixXd) qr.householderQ()).block(0, 0, mat.cols(), rk),
+    qr.matrixQR().topLeftCorner(rk, rk).triangularView<Eigen::Upper>(),
+    indices,
+    rk
+  };
+
+  return result;
+
+}
+
+
+
+// [[Rcpp::export]]
+Rcpp::List test_eigen(Eigen::Map<Eigen::MatrixXd> X, Eigen::Map<Eigen::MatrixXd> Y) {
+
+  //MatrixXd centered = mat.rowwise() - mat.colwise().mean();
+
+  qr_result qrX = qr_decomp_cpp(center(X));
+  qr_result qrY = qr_decomp_cpp(center(Y));
+
+  //Rcpp::List qr_result_to_list(qr_result result)
+
+  return qr_result_to_list(qrX);
+
+
+  // //  QR decomposition
+  // // (https://cran.r-project.org/doc/contrib/Hiebeler-matlabR.pdf)
+  // //  qrDecompX <- qr(x, tol = epsilon)
+  // //  qX <- qr.Q(qrDecompX)
+  // //  rX <- qr.R(qrDecompX)
+  // //  pX <- qrDecompX$pivot
+  // //  rankX <- qrDecompX$rank
+  // //
+  // //  qrDecomp <- qr(y, tol = epsilon)
+  // //  qY <- qr.Q(qrDecomp)
+  // //  rY <- qr.R(qrDecomp)
+  // //  pY <- qrDecomp$pivot
+  // //  rankY <- qrDecomp$rank
+  // //
+  //
+  //
+  // return Rcpp::List::create(
+  //   Rcpp::Named("QR") = Rcpp::wrap(QR),
+  //   Rcpp::Named("Q") = Rcpp::wrap(Q),
+  //   Rcpp::Named("R") = Rcpp::wrap(R),
+  //   Rcpp::Named("perm") = Rcpp::wrap(perm));
+  //   //Rcpp::Named("rk") = Rcpp::as<NumericVector>(rk));
+  //
   //return R_NilValue;
 
 }
