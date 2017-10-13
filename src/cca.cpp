@@ -10,28 +10,20 @@
 
 // return the decom information in this struct
 typedef struct  {
-  //Eigen::MatrixXd Q;
+  Eigen::MatrixXd Q;
   Eigen::MatrixXd R;
-  Eigen::MatrixXf::Index* perm;
+  Eigen::MatrixXd perm;
   int rk;
 } qr_result;
 
 // mostly used for debugging and verifying results in R
 Rcpp::List qr_result_to_list(qr_result result) {
 
-  // copy perm to numeric vector
-  Rcpp::NumericVector perm(result.rk);
-  for (int i = 0; i < perm.size(); i++) {
-    perm[i] = result.perm[i] + 1;
-  }
-
   // free the allocated mem for perm
-  std::free(result.perm);
-
   return Rcpp::List::create(
-    //Rcpp::Named("Q") = Rcpp::wrap(result.Q),
+    Rcpp::Named("Q") = Rcpp::wrap(result.Q),
     Rcpp::Named("R") = Rcpp::wrap(result.R),
-    Rcpp::Named("perm") = perm,
+    Rcpp::Named("perm") = Rcpp::wrap(result.perm),
     Rcpp::Named("rank") = Rcpp::wrap(result.rk));
 
 }
@@ -43,26 +35,14 @@ qr_result qr_decomp_cpp(Eigen::MatrixXd mat) {
   Eigen::ColPivHouseholderQR< Eigen::MatrixXd > qr;
   qr.setThreshold(threshold);
   qr.compute(mat);
-
-  int rk = qr.rank();
-
-  Eigen::MatrixXd perm = qr.colsPermutation();
-
-  // find col-index positions of permutation matrix
-  Eigen::MatrixXf::Index* indices = (Eigen::MatrixXf::Index*) std::calloc(perm.cols(), sizeof(indices));
-
-  for(int i=0; i < perm.cols(); ++i) {
-    perm.col(i).maxCoeff( &indices[i] );
-  }
-
-  //Eigen::ColPivHouseholderQR< Eigen::MatrixXd >::HouseholderSequenceType  seq = qr.householderQ();
-
+  int rank = qr.rank();
+  Eigen::MatrixXd Q = qr.householderQ() * Eigen::MatrixXd::Identity(mat.rows(), rank);
 
   qr_result result = {
-    //((Eigen::MatrixXd) qr.householderQ()).block(0, 0, mat.cols(), rk),
-    qr.matrixQR().topLeftCorner(rk, rk).triangularView<Eigen::Upper>(),
-    indices,
-    rk
+    Q,
+    qr.matrixQR().topLeftCorner(rank, rank).triangularView<Eigen::Upper>(),
+    qr.colsPermutation(),
+    rank
   };
 
   return result;
@@ -77,9 +57,12 @@ Rcpp::List test_eigen(Eigen::Map<Eigen::MatrixXd> X, Eigen::Map<Eigen::MatrixXd>
   //MatrixXd centered = mat.rowwise() - mat.colwise().mean();
 
   qr_result qrX = qr_decomp_cpp(center(X));
-  qr_result qrY = qr_decomp_cpp(center(Y));
+  //qr_result qrX = qr_decomp_cpp(X);
+  //qr_result qrY = qr_decomp_cpp(center(Y));
 
+  //return R_NilValue;
   //Rcpp::List qr_result_to_list(qr_result result)
+
 
   return qr_result_to_list(qrX);
 
